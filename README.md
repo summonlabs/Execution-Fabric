@@ -194,4 +194,4 @@ On the local NVIDIA RTX 5090 (compute capability 12.0 / sm_120), the CUDA proof 
 
 ## License
 
-Apache-2.0 (see `LICENSE`).
+Apache License 2.0. Copyright 2026 Summon Software Labs. No telemetry transmission.
