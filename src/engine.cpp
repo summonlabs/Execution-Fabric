@@ -129,16 +129,17 @@ Decision ExecutionEngine::transition_attempt(AttemptRecord& at, AttemptState to)
 // Create / activate
 // ---------------------------------------------------------------------------
 Decision ExecutionEngine::create(const ExecutionId& id, const CoordinatorEpoch& epoch) {
-    if (epoch < epoch_) {
+    // The request's epoch must be the current one: a lower epoch is stale, and
+    // a higher one was not issued by this coordinator (only raise_epoch() moves it).
+    if (epoch != epoch_) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "create rejected: coordinator epoch " + std::to_string(epoch.value()) +
-                   " is older than current " + std::to_string(epoch_.value());
+                   " is not the current " + std::to_string(epoch_.value());
         d.execution_id = id;
         d.coordinator_epoch = epoch_;
         return d;
     }
-    adopt_epoch(epoch);
     if (records_.count(id) != 0) {
         Decision d;
         d.code = DecisionCode::REJECT_EXISTS;
@@ -164,14 +165,13 @@ Decision ExecutionEngine::create(const ExecutionId& id, const CoordinatorEpoch& 
 
 Decision ExecutionEngine::activate(const ExecutionId& id, const CoordinatorEpoch& epoch) {
     ExecutionRecord& rec = require(id);
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "activate rejected: stale coordinator epoch";
         fill_context(d, rec);
         return d;
     }
-    adopt_epoch(epoch);
     if (rec.state != ExecutionState::CREATED) {
         Decision d;
         d.code = DecisionCode::REJECT_ALREADY_TERMINAL;
@@ -192,14 +192,13 @@ Decision ExecutionEngine::dispatch(const ExecutionId& id, const WorkerId& worker
                                    const WorkerBootId& boot, const CoordinatorEpoch& epoch,
                                    DispatchTicket& out_ticket) {
     ExecutionRecord& rec = require(id);
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "dispatch rejected: stale coordinator epoch";
         fill_context(d, rec);
         return d;
     }
-    adopt_epoch(epoch);
     if (rec.state == ExecutionState::COMMITTED) {
         Decision d;
         d.code = DecisionCode::REJECT_ALREADY_COMMITTED;
@@ -633,7 +632,7 @@ Decision ExecutionEngine::finalize_cancel(const ExecutionId& id, const Coordinat
         return d;
     }
     ExecutionRecord& rec = *prec;
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "finalize_cancel rejected: stale coordinator epoch";
@@ -720,7 +719,7 @@ Decision ExecutionEngine::acknowledge_preempt(const ExecutionId& id, const Coord
         return d;
     }
     ExecutionRecord& rec = *prec;
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "acknowledge_preempt rejected: stale coordinator epoch";
@@ -751,7 +750,7 @@ Decision ExecutionEngine::mark_resumable(const ExecutionId& id, const Coordinato
         return d;
     }
     ExecutionRecord& rec = *prec;
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "mark_resumable rejected: stale coordinator epoch";
@@ -869,7 +868,7 @@ Decision ExecutionEngine::mark_worker_lost(const ExecutionId& id, const WorkerId
         return d;
     }
     ExecutionRecord& rec = *prec;
-    if (epoch < epoch_ || epoch < rec.coordinator_epoch) {
+    if (epoch != epoch_ || epoch < rec.coordinator_epoch) {
         Decision d;
         d.code = DecisionCode::REJECT_STALE_EPOCH;
         d.reason = "worker_lost rejected: stale coordinator epoch";

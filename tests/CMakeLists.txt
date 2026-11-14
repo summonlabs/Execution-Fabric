@@ -6,7 +6,8 @@ set(EF_TESTS
     property_test
     concurrency_test
     adversarial_test
-    protocol_test)
+    protocol_test
+    regression_test)
 
 foreach(ef_test ${EF_TESTS})
     add_executable(${ef_test} ${ef_test}.cpp)
